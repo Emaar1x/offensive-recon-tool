@@ -1,0 +1,7 @@
+python-whois
+dnspython
+requests
+python-nmap
+builtwith
+jinja2
+pytest
