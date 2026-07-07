@@ -40,11 +40,14 @@ def setup_logging(verbosity=0):
     logging.debug("Log file: %s", log_file)
 
 
-def run_module(name, module, domain, results):
+def run_module(name, module, domain, results, **kwargs):
     """Run a single module safely (catch all errors)."""
     try:
         logging.info("Running module: %s", name)
-        data = module.run(domain)
+        if name == "portscan" and "port_spec" in kwargs:
+            data = module.run(domain, kwargs["port_spec"])
+        else:
+            data = module.run(domain)
         results[name] = data
         logging.info("Module '%s' done.", name)
     except Exception as e:
@@ -52,23 +55,112 @@ def run_module(name, module, domain, results):
         results[name] = {"error": str(e)}
 
 
+def print_portscan_help():
+    """Print portscan module usage and examples."""
+    help_text = """
+╔══════════════════════════════════════════════════════════════════╗
+║                    PORT SCAN MODULE - HELP                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+PORT SPECIFICATIONS:
+  ┌─────────────────────┬──────────────────────────────────────────┐
+  │ Spec                │ Description                              │
+  ├─────────────────────┼──────────────────────────────────────────┤
+  │ default/top100      │ Top 100 most common ports                │
+  │ top1000             │ Ports 1-1000                             │
+  │ 80,443,8080         │ Comma-separated list                     │
+  │ 1-1000              │ Range                                    │
+  │ 1-100,443,8000-9000 │ Mixed range and list                     │
+  │ 22                  │ Single port                              │
+  └─────────────────────┴──────────────────────────────────────────┘
+
+EXAMPLES:
+  # Basic scan (top 100 ports)
+  python recon.py --ports example.com
+
+  # Top 1000 ports
+  python recon.py --ports example.com --port-spec top1000
+
+  # Specific ports
+  python recon.py --ports example.com --port-spec 80,443,8080
+
+  # Port range
+  python recon.py --ports example.com --port-spec 1-100
+
+  # Mixed range and list
+  python recon.py --ports example.com --port-spec 1-100,443,8000-9000
+
+  # Single port
+  python recon.py --ports example.com --port-spec 22
+
+  # With verbosity
+  python recon.py --ports example.com -v
+  python recon.py --ports example.com -vv
+
+  # Standalone testing
+  python modules/portscan.py example.com
+  python modules/portscan.py example.com top1000
+  python modules/portscan.py example.com 80,443,8080
+
+COMMON PORT GROUPS:
+  Web:         80, 443, 8080, 8443, 8000
+  Database:    3306, 5432, 27017, 6379, 1433
+  Remote:      22, 23, 3389, 5900
+  Mail:        25, 110, 143, 465, 587, 993, 995
+  Windows:     135, 139, 445, 3389
+
+PERFORMANCE NOTES:
+  - Top 100 ports:  ~5-8 seconds
+  - Top 1000 ports: ~60-75 seconds
+  - Custom lists:   ~2-5 seconds
+  - Speed: ~14 ports/second on Windows
+
+╔══════════════════════════════════════════════════════════════════╗
+║  For more details, check: README.md or python recon.py --help    ║
+╚══════════════════════════════════════════════════════════════════╝
+"""
+    print(help_text)
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Offensive Recon Tool - A modular reconnaissance framework."
+        description="Offensive Recon Tool - A modular reconnaissance framework.",
+        add_help=True
     )
-    parser.add_argument("domain", help="Target domain (e.g. example.com)")
+    
+    # Make domain optional with nargs='?'
+    parser.add_argument("domain", nargs='?', help="Target domain (e.g. example.com)")
+    
     parser.add_argument("--whois", action="store_true", help="WHOIS lookup")
     parser.add_argument("--dns", action="store_true", help="DNS enumeration")
     parser.add_argument("--subdomains", action="store_true", help="Subdomain discovery")
     parser.add_argument("--ports", action="store_true", help="Port scan")
+    parser.add_argument("--port-spec", default="top100",
+                        help="Port specification: top100, top1000, 80,443, 1-1000, 1-100,200,300-400")
     parser.add_argument("--tech", action="store_true", help="Technology detection")
     parser.add_argument("--all", action="store_true", help="Run all modules")
+    parser.add_argument("--help-ports", action="store_true",
+                        help="Show port scan module usage and examples")
     parser.add_argument("-o", "--output", choices=["json", "txt", "html"], default="json",
                         help="Report format (default: json)")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                         help="Verbosity (-v for INFO, -vv for DEBUG)")
 
     args = parser.parse_args()
+    
+    # Show portscan help if requested (no domain needed)
+    if args.help_ports:
+        print_portscan_help()
+        sys.exit(0)
+    
+    # Check if domain is provided (now optional, so we need to check)
+    if not args.domain:
+        parser.print_help()
+        print("\n[!] Error: domain is required unless using --help-ports")
+        print("[!] Usage: python recon.py <domain> [options]")
+        print("[!] For port scan help: python recon.py --help-ports")
+        sys.exit(1)
+    
     setup_logging(args.verbose)
 
     domain = args.domain
@@ -88,6 +180,7 @@ def main():
     if not modules_to_run:
         parser.print_help()
         print("\n[!] No module selected. Use --all or pick at least one.")
+        print("[!] For port scan help: python recon.py --help-ports")
         sys.exit(1)
 
     # Run selected modules
@@ -96,7 +189,7 @@ def main():
 
     for name, module in modules_to_run.items():
         print(f"  [*] {name}...")
-        run_module(name, module, domain, results)
+        run_module(name, module, domain, results, port_spec=args.port_spec)
         print(f"  [+] {name} done.")
 
     # Generate report
