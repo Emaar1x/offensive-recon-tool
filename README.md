@@ -152,6 +152,22 @@ validates for every module.
   servers); this is normalized to a single value where possible but may
   occasionally pick the wrong entry for uncommon TLDs.
 
+## Docker (Bonus)
+
+To run the tool via Docker without installing Python dependencies locally:
+
+```bash
+# 1. Build the image
+docker build -t offensive-recon-tool .
+
+# 2. Run the tool (acts just like the CLI)
+docker run --rm offensive-recon-tool --all example.com
+
+# 3. Mount a volume to save generated reports locally
+# On Windows PowerShell, use ${PWD} or $(Get-Location)
+docker run --rm -v ${PWD}/reports:/app/reports offensive-recon-tool --all example.com -o html
+```
+
 ## Testing
 
 ```bash
