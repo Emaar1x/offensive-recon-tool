@@ -1,4 +1,4 @@
-###Offensive Recon Tool
+**Offensive Recon Tool**
 
 A modular, command-line reconnaissance framework built for **authorized**
 penetration testing and security assessments. It brings together passive
