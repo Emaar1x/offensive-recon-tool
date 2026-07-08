@@ -186,24 +186,46 @@ def main():
     # Run selected modules
     results = {}
     print(f"\n[*] Starting recon on {domain}\n")
+    
+    start_time = time.time()
 
-    for name, module in modules_to_run.items():
-        print(f"  [*] {name}...")
-        run_module(name, module, domain, results, port_spec=args.port_spec)
-        print(f"  [+] {name} done.")
-
-    # Generate report
-    print(f"\n[*] Generating report...")
     try:
-        report_path = report.generate(domain, results, fmt=args.output)
-        if report_path:
-            print(f"[+] Report saved: {report_path}")
-        else:
-            print("[!] Report module not yet implemented (Task 5).")
-    except Exception as e:
-        print(f"[-] Report failed: {e}")
+        for name, module in modules_to_run.items():
+            print(f"  [*] {name}...")
+            run_module(name, module, domain, results, port_spec=args.port_spec)
+            print(f"  [+] {name} done.")
 
-    print("\n[*] Done.\n")
+        # Generate report
+        print(f"\n[*] Generating report...")
+        try:
+            report_path = report.generate(domain, results, fmt=args.output)
+            if report_path:
+                print(f"[+] Report saved: {report_path}")
+            else:
+                print("[!] Report module not yet implemented (Task 5).")
+        except Exception as e:
+            print(f"[-] Report failed: {e}")
+
+        # Quick Summary
+        summary = []
+        if "subdomains" in results and "total_found" in results["subdomains"]:
+            summary.append(f"{results['subdomains']['total_found']} subdomains")
+        if "portscan" in results and "total_open" in results["portscan"]:
+            summary.append(f"{results['portscan']['total_open']} open ports")
+        if "techdetect" in results and "technologies" in results["techdetect"]:
+            summary.append(f"{len(results['techdetect']['technologies'])} technologies")
+        if "whois_dns" in results and "risk_level" in results["whois_dns"]:
+            summary.append(f"Risk: {results['whois_dns']['risk_level']}")
+            
+        if summary:
+            print(f"\n[*] Summary: {' | '.join(summary)}")
+
+    except KeyboardInterrupt:
+        print("\n[!] Scan aborted by user (Ctrl+C).")
+        sys.exit(130)
+
+    elapsed = time.time() - start_time
+    print(f"\n[*] Done in {elapsed:.1f} seconds.\n")
 
 
 if __name__ == "__main__":
