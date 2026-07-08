@@ -37,9 +37,13 @@ from modules import whois_dns, subdomains, portscan, techdetect, report
 
 def run_cli(*args, timeout=30):
     """Run `python recon.py <args>` and capture the result."""
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
     return subprocess.run(
         [sys.executable, RECON_PY, *args],
         capture_output=True, text=True, timeout=timeout,
+        env=env,
+        encoding="utf-8",
     )
 
 SAMPLE_RESULTS = {
